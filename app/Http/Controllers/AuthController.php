@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Models\User;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Auth;
 
 class AuthController extends Controller
 {
@@ -23,7 +24,14 @@ class AuthController extends Controller
             'password' => Hash::make($request->password),
         ]);
 
-        return response()->json(['message' => 'User registered successfully', 'user' => $user], 201);
+        $token = $user->createToken('auth_token_for_' . $user->name)->plainTextToken;
+
+        return response()->json([
+            'message' => 'User registered successfully', 
+            'access_token' => $token,
+            'token_type' => 'Bearer',
+            'user' => $user
+        ], 201);
     }
 
     //User Login
@@ -34,12 +42,18 @@ class AuthController extends Controller
             'password' => 'required'
         ]);
 
-        $user = User::where('email', $request->email)->first();
+        $credentials = $request->only('email', 'password'); 
 
-        if (!$user || !Hash::check($request->password, $user->password)) {
-            return response()->json(['message' => 'Invalid credentials'], 401);
+        if(Auth::attempt($credentials)){
+            $user = Auth::user();
+            $token = $user->createToken('auth_token_for_' . $user->name)->plainTextToken;
+            return response()->json([
+                'message' => 'Login successful',
+                'access_token' => $token,
+                'token_type' => 'Bearer',
+                 'user' => $user
+                ], 200);
         }
-
-        return response()->json(['message' => 'Login successful', 'user' => $user], 200);
+        return response()->json(['message' => 'Invalid credentials'], 401);
     }
 }
